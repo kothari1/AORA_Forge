@@ -9,7 +9,7 @@ The full AORA-Forge MVP framework is **built, tested, type-checked, and pushed**
 **real-shaped failures → cluster into themes → generate a SkillSpec → forge a
 validated skill → store → retrieve as a planner tool**, with the *same code path*
 serving the drone and the ground robot (C1), the curriculum driven by failures (C2),
-and a 3DGS reconstruction handle on the substrate (C3, stubbed tonight). 26 tests
+and a 3DGS reconstruction handle on the substrate (C3, stubbed tonight). 42 tests
 pass; ruff and mypy are clean; CI is wired.
 
 **The one thing that needs you:** there was **no `ANTHROPIC_API_KEY` in the
@@ -35,7 +35,7 @@ the moment you set the key. See **#1** below and `BLOCKERS.md`.
 cd /home/admin/projects/AORA_Forge
 pip install -e .                       # already done in base conda env
 python -c "import aora_forge"          # ✓ imports
-pytest tests/ -q                       # ✓ 26 passed
+pytest tests/ -q                       # ✓ 42 passed
 ruff check aora_forge scripts tests    # ✓ clean
 mypy aora_forge                        # ✓ clean (36 files)
 python scripts/demo_full_loop.py --mock        # ✓ 50 failures → 9 validated skills → retrieval
@@ -101,8 +101,8 @@ the job, fragile, and you said the key would be in env). The real path is proven
 
 - Pushed to `main` at <https://github.com/kothari1/AORA_Forge> (public).
 - `git log --oneline`: phased, single-author (Aditya Kothari), no external attribution.
-- 26 tests green · ruff clean · mypy clean · CI workflow added (`.github/workflows/ci.yml`).
-- ~40 Python modules in `aora_forge/`, 4 scripts, 7 test files, 5 docs.
+- 42 tests green · ruff clean · mypy clean · CI workflow added (`.github/workflows/ci.yml`).
+- ~40 Python modules in `aora_forge/`, 5 scripts, 10 test files, 6 docs (01–05 + transcript).
 
 ## What this run cost (rough estimate)
 
