@@ -40,6 +40,7 @@ demo_skill_store/
 # Secrets / env
 .env
 .env.*
+!.env.example
 *.key
 .secrets/
 
