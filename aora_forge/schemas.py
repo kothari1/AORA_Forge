@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -54,7 +54,7 @@ class Embodiment(str, Enum):
     evaluation can be sliced per embodiment, never so the growth code can branch.
     """
 
-    DRONE_FIGS = "drone_figs"          # LEAD's continuous drone in a FiGS/GemSplat scene
+    DRONE_FIGS = "drone_figs"  # LEAD's continuous drone in a FiGS/GemSplat scene
     GROUND_HABITAT = "ground_habitat"  # AORA_v1's discrete ground agent in HM3D
 
 
@@ -69,26 +69,28 @@ class FailureMode(str, Enum):
     LEAD↔AORA alias table.
     """
 
-    NONE = "NONE"                                  # success / not a failure
+    NONE = "NONE"  # success / not a failure
     # ---- false-positive arrivals (the headline LEAD FPR failure) ----
-    CLAIMED_NOT_REACHED = "CLAIMED_NOT_REACHED"    # VLM said done(), GT distance too large
-    HALLUCINATED_DONE = "HALLUCINATED_DONE"        # AORA_v1 name for the same family (done accepted, wrong)
-    DONE_GATE_LOOP = "DONE_GATE_LOOP"              # repeatedly rejected by the depth gate
+    CLAIMED_NOT_REACHED = "CLAIMED_NOT_REACHED"  # VLM said done(), GT distance too large
+    HALLUCINATED_DONE = (
+        "HALLUCINATED_DONE"  # AORA_v1 name for the same family (done accepted, wrong)
+    )
+    DONE_GATE_LOOP = "DONE_GATE_LOOP"  # repeatedly rejected by the depth gate
     # ---- target grounding ----
     TARGET_MISIDENTIFICATION = "TARGET_MISIDENTIFICATION"  # went to the wrong object
-    INSTANCE_CONFUSION = "INSTANCE_CONFUSION"      # two instances match the query
-    TARGET_NOT_VISIBLE = "TARGET_NOT_VISIBLE"      # target never entered view frustum
-    WRONG_ROOM = "WRONG_ROOM"                      # searched the wrong region
+    INSTANCE_CONFUSION = "INSTANCE_CONFUSION"  # two instances match the query
+    TARGET_NOT_VISIBLE = "TARGET_NOT_VISIBLE"  # target never entered view frustum
+    WRONG_ROOM = "WRONG_ROOM"  # searched the wrong region
     # ---- exploration / motion pathologies ----
-    SCAN_LOOP = "SCAN_LOOP"                        # look_around loop with no displacement
-    STUCK_AGAINST_WALL = "STUCK_AGAINST_WALL"      # repeated collisions (ground only)
-    TIMEOUT_NO_PROGRESS = "TIMEOUT_NO_PROGRESS"    # step budget spent, no geodesic progress
-    OOB = "OOB"                                    # out of bounds (drone only)
+    SCAN_LOOP = "SCAN_LOOP"  # look_around loop with no displacement
+    STUCK_AGAINST_WALL = "STUCK_AGAINST_WALL"  # repeated collisions (ground only)
+    TIMEOUT_NO_PROGRESS = "TIMEOUT_NO_PROGRESS"  # step budget spent, no geodesic progress
+    OOB = "OOB"  # out of bounds (drone only)
     # ---- orchestrator-level ----
     PLANNER_BUDGET_EXHAUSTED = "PLANNER_BUDGET_EXHAUSTED"
     PLANNER_ABORT = "PLANNER_ABORT"
     # ---- catch-alls ----
-    TIMEOUT_OTHER = "TIMEOUT_OTHER"                # timed out, no signature matched
+    TIMEOUT_OTHER = "TIMEOUT_OTHER"  # timed out, no signature matched
     LLM_ERROR = "LLM_ERROR"
 
 
@@ -101,10 +103,10 @@ class SkillType(str, Enum):
     real — the interface is here; the trainer is a documented stub.
     """
 
-    PROMPT = "prompt"          # a specialised executor system prompt
-    CODE = "code"              # a Voyager-style verified Python function
+    PROMPT = "prompt"  # a specialised executor system prompt
+    CODE = "code"  # a Voyager-style verified Python function
     CLASSIFIER = "classifier"  # a small learned head (e.g. CLIP-feature MLP)
-    POLICY = "policy"          # a closed-loop policy trained in a 3DGS reconstruction (future)
+    POLICY = "policy"  # a closed-loop policy trained in a 3DGS reconstruction (future)
 
 
 # --------------------------------------------------------------------------- #
@@ -116,18 +118,18 @@ class SceneGraphNode(BaseModel):
     """One object node in a sparse scene graph."""
 
     node_id: str
-    label: str                                   # open-vocab object class, e.g. "green clock"
+    label: str  # open-vocab object class, e.g. "green clock"
     attributes: dict[str, str] = Field(default_factory=dict)  # colour, size_class, material, ...
-    position: Optional[list[float]] = None       # [x, y, z] in the embodiment's frame, if known
+    position: list[float] | None = None  # [x, y, z] in the embodiment's frame, if known
     confidence: float = 1.0
-    last_seen_step: Optional[int] = None
+    last_seen_step: int | None = None
 
 
 class SceneGraphRelation(BaseModel):
     """A directed relation between two nodes, e.g. (clock, on, table)."""
 
     subject_id: str
-    predicate: str                               # on, near, left_of, inside, occluded_by, ...
+    predicate: str  # on, near, left_of, inside, occluded_by, ...
     object_id: str
     confidence: float = 1.0
 
@@ -141,11 +143,11 @@ class SceneGraphContext(BaseModel):
     retrieval reproducible.
     """
 
-    embodiment: Optional[Embodiment] = None
-    environment: Optional[str] = None            # scene id, e.g. "flightroom_ssv_exp" or "hm3d:00800"
+    embodiment: Embodiment | None = None
+    environment: str | None = None  # scene id, e.g. "flightroom_ssv_exp" or "hm3d:00800"
     nodes: list[SceneGraphNode] = Field(default_factory=list)
     relations: list[SceneGraphRelation] = Field(default_factory=list)
-    summary_text: str = ""                       # embedding key; filled by scene_graph/context.py
+    summary_text: str = ""  # embedding key; filled by scene_graph/context.py
 
     def object_labels(self) -> list[str]:
         return [n.label for n in self.nodes]
@@ -163,16 +165,16 @@ class FailureObservations(BaseModel):
     record drops straight in.
     """
 
-    steps_used: Optional[int] = None
-    max_steps: Optional[int] = None
-    vlm_claimed_success: Optional[bool] = None
-    done_accepted: Optional[bool] = None
+    steps_used: int | None = None
+    max_steps: int | None = None
+    vlm_claimed_success: bool | None = None
+    done_accepted: bool | None = None
     done_rejected_count: int = 0
-    dist_to_goal_final: Optional[float] = None   # metres to GT centroid at episode end
+    dist_to_goal_final: float | None = None  # metres to GT centroid at episode end
     collided_step_fraction: float = 0.0
     scan_count: int = 0
-    geodesic_progress_final_window: Optional[float] = None  # fraction in [0, 1]
-    target_ever_visible: Optional[bool] = None
+    geodesic_progress_final_window: float | None = None  # fraction in [0, 1]
+    target_ever_visible: bool | None = None
 
 
 class FailureRecord(BaseModel):
@@ -189,18 +191,18 @@ class FailureRecord(BaseModel):
 
     record_id: str
     embodiment: Embodiment
-    environment: str                             # scene id
-    task_instruction: str                        # the NL mission, e.g. "go to the green clock"
-    target_query: str                            # the object sought, e.g. "green clock"
+    environment: str  # scene id
+    task_instruction: str  # the NL mission, e.g. "go to the green clock"
+    target_query: str  # the object sought, e.g. "green clock"
     failure_mode: FailureMode
     narrative: str = Field(
         ...,
         description="Short natural-language account of what went wrong (1-3 sentences).",
     )
     observations: FailureObservations = Field(default_factory=FailureObservations)
-    scene_context: Optional[SceneGraphContext] = None
-    representative_frame_ref: Optional[str] = None  # path/uri to an RGB frame (for 3DGS later)
-    episode_id: Optional[str] = None
+    scene_context: SceneGraphContext | None = None
+    representative_frame_ref: str | None = None  # path/uri to an RGB frame (for 3DGS later)
+    episode_id: str | None = None
     timestamp: datetime = Field(default_factory=utc_now)
     provenance: dict[str, Any] = Field(
         default_factory=dict,
@@ -232,8 +234,8 @@ class FailureCluster(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     cluster_id: str
-    title: str                                   # short human-readable theme name
-    description: str                             # what unites these failures
+    title: str  # short human-readable theme name
+    description: str  # what unites these failures
     hypothesized_root_cause: str
     suggested_skill_type: SkillType
     member_record_ids: list[str] = Field(default_factory=list)
@@ -275,7 +277,7 @@ class ReconstructionSpec(BaseModel):
 
     needed: bool = False
     source_frame_refs: list[str] = Field(default_factory=list)  # RGB frames from the failure scene
-    reconstruction_id: Optional[str] = None                     # set once reconstructed
+    reconstruction_id: str | None = None  # set once reconstructed
     method: Literal["stub", "gsplat", "nerfacto", "external"] = "stub"
     notes: str = ""
 
@@ -318,7 +320,7 @@ class SkillValidation(BaseModel):
     """The trainer's verdict on a forged skill."""
 
     passed: bool
-    score: float = 0.0                            # in [0, 1]
+    score: float = 0.0  # in [0, 1]
     n_cases_total: int = 0
     n_cases_passed: int = 0
     notes: str = ""
@@ -339,14 +341,14 @@ class Skill(BaseModel):
     spec: SkillSpec
     artifact_kind: Literal["prompt", "python", "classifier"]
     artifact_ref: str = Field(..., description="Relative path within the skill's library dir.")
-    artifact_inline: Optional[str] = Field(
+    artifact_inline: str | None = Field(
         default=None,
         description="The artifact text inlined (prompt or code), when small enough to embed.",
     )
     validation: SkillValidation
-    scene_graph_context: Optional[SceneGraphContext] = None
-    reconstruction_ref: Optional[str] = None      # ReconstructionHandle id, when C3 is real
-    embedding_ref: Optional[str] = None            # relative path to embedding.npy
+    scene_graph_context: SceneGraphContext | None = None
+    reconstruction_ref: str | None = None  # ReconstructionHandle id, when C3 is real
+    embedding_ref: str | None = None  # relative path to embedding.npy
     version: int = 1
     created_at: datetime = Field(default_factory=utc_now)
     provenance: dict[str, Any] = Field(default_factory=dict)
@@ -381,7 +383,7 @@ class SkillLibraryEntry(BaseModel):
 
 class ToolProvenance(BaseModel):
     skill_id: str
-    cluster_id: Optional[str] = None
+    cluster_id: str | None = None
     record_ids: list[str] = Field(default_factory=list)
 
 
@@ -448,7 +450,7 @@ class LLMUsage(BaseModel):
     cost_usd: float = 0.0
     mocked: bool = False
 
-    def __add__(self, other: "LLMUsage") -> "LLMUsage":
+    def __add__(self, other: LLMUsage) -> LLMUsage:
         return LLMUsage(
             model=self.model if self.model == other.model else "mixed",
             input_tokens=self.input_tokens + other.input_tokens,
