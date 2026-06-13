@@ -9,13 +9,17 @@ The full AORA-Forge MVP framework is **built, tested, type-checked, and pushed**
 **real-shaped failures → cluster into themes → generate a SkillSpec → forge a
 validated skill → store → retrieve as a planner tool**, with the *same code path*
 serving the drone and the ground robot (C1), the curriculum driven by failures (C2),
-and a 3DGS reconstruction handle on the substrate (C3, stubbed tonight). 42 tests
+and a 3DGS reconstruction handle on the substrate (C3, stubbed). 53 tests
 pass; ruff and mypy are clean; CI is wired.
 
-**The one thing that needs you:** there was **no `ANTHROPIC_API_KEY` in the
-environment overnight**, so the demo ran against a deterministic mock. The real
-Anthropic code path is implemented and unit-tested with a fake client — it will work
-the moment you set the key. See **#1** below and `BLOCKERS.md`.
+**The LLM stack now runs on all three providers you asked for — Claude (Anthropic
+API), OpenAI, and Gemini (via Vertex AI)** — behind one `LLMClient` interface, picked
+by `AORA_FORGE_PROVIDER` or the first reachable credential, else a deterministic mock.
+**The demo has been verified END TO END against live Vertex Gemini** using your
+`gcp-lead` service account (`gemini-2.5-pro`/`flash`): 20 failures → 3 clusters → 3
+skills, ~$0.06, 205 s. The Anthropic and OpenAI paths are implemented and unit-tested
+with injected fakes; they run the moment their keys are present. (Your SA key is stored
+**only** in the gitignored `.secrets/gcp-lead-sa.json` — never committed.)
 
 ## What to read first (in order)
 
@@ -35,10 +39,11 @@ the moment you set the key. See **#1** below and `BLOCKERS.md`.
 cd /home/admin/projects/AORA_Forge
 pip install -e .                       # already done in base conda env
 python -c "import aora_forge"          # ✓ imports
-pytest tests/ -q                       # ✓ 42 passed
+pytest tests/ -q                       # ✓ 53 passed
 ruff check aora_forge scripts tests    # ✓ clean
-mypy aora_forge                        # ✓ clean (36 files)
-python scripts/demo_full_loop.py --mock        # ✓ 50 failures → 9 validated skills → retrieval
+mypy aora_forge                        # ✓ clean (41 files)
+python scripts/demo_full_loop.py --mock                       # ✓ mock: 50 failures → 9 skills
+AORA_FORGE_PROVIDER=vertex python scripts/demo_full_loop.py   # ✓ LIVE Gemini (your gcp-lead SA)
 python scripts/orchestrator_hook_demo.py --mock # ✓ planner gains grown tools (Tier-3 stretch A)
 ```
 
@@ -57,9 +62,10 @@ Concretely working, end to end:
   frequency-denoised keys; offline hashing embedder so it runs without sentence-transformers.
 - **Orchestrator hooks** — skills → `OrchestratorTool` specs; the stub LEAD planner *gains
   tools that did not exist before growth* (the integration-point proof).
-- **LLM layer** — real Anthropic client (forced-tool structured output, prompt caching, cost
-  telemetry, 3-attempt validate-and-retry = LEAD's idiom) + deterministic mock; the real path
-  is unit-tested with a fake client (`tests/test_anthropic_client.py`).
+- **LLM layer (3 providers)** — Anthropic / OpenAI / Vertex Gemini behind one `LLMClient`
+  (forced-tool or `response_schema` structured output, prompt caching where supported, cost
+  telemetry, 3-attempt validate-and-retry = LEAD's idiom) + deterministic mock. **Vertex is
+  proven live**; all three paths are unit-tested with injected fakes.
 
 ## What's stubbed / interface-only (by design tonight)
 
@@ -82,27 +88,32 @@ Nothing is broken. Items needing *your* input are in `BLOCKERS.md` — chiefly: 
 logs; and a few design decisions (which embodiment to demo first, sentence-transformers
 opt-in).
 
-## #1 — the real-API demo
-
-Tonight: no key in env → demo ran in **MOCK** mode (deterministic, $0). The pipeline is
-*identical* with a key; `get_llm_client()` auto-selects the backend. To get the real-API
-proof:
+## #1 — running the real-API demo (all three providers)
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...        # your key
-python scripts/demo_full_loop.py           # now hits Opus 4.8 + Haiku 4.5
+pip install -e ".[providers]"                 # adds openai + google-genai (one-time)
+
+# Gemini via Vertex — works now with your gcp-lead SA in .secrets/ (no extra env):
+AORA_FORGE_PROVIDER=vertex python scripts/demo_full_loop.py
+
+# Claude:
+AORA_FORGE_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-ant-... python scripts/demo_full_loop.py
+# OpenAI:
+AORA_FORGE_PROVIDER=openai OPENAI_API_KEY=sk-... python scripts/demo_full_loop.py
 ```
 
-I did **not** hijack the Claude Code OAuth token for automated API calls (wrong tool for
-the job, fragile, and you said the key would be in env). The real path is proven by
-`tests/test_anthropic_client.py` (5 tests injecting a fake Anthropic response).
+With no `AORA_FORGE_PROVIDER` set, the provider is auto-detected (Anthropic → OpenAI →
+Vertex by credential, else mock). The Vertex path is **proven live**; the Anthropic and
+OpenAI paths are proven by `tests/test_anthropic_client.py` + `tests/test_providers.py`
+(injected fake responses — structured parsing, validate-and-retry, fallback, telemetry).
+I did **not** repurpose the Claude Code OAuth token for automated calls.
 
 ## Repo state
 
 - Pushed to `main` at <https://github.com/kothari1/AORA_Forge> (public).
 - `git log --oneline`: phased, single-author (Aditya Kothari), no external attribution.
-- 42 tests green · ruff clean · mypy clean · CI workflow added (`.github/workflows/ci.yml`).
-- ~40 Python modules in `aora_forge/`, 5 scripts, 10 test files, 6 docs (01–05 + transcript).
+- 53 tests green · ruff clean · mypy clean · CI workflow added (`.github/workflows/ci.yml`).
+- ~45 Python modules in `aora_forge/`, 5 scripts, 11 test files, 6 docs (01–05 + transcript).
 
 ## What this run cost (rough estimate)
 
@@ -111,9 +122,11 @@ the job, fragile, and you said the key would be in env). The real path is proven
 - **Main build session:** exact token count isn't available to me; order of magnitude is a
   few million cached-input tokens (large doc reads: LEAD report, lit review, the claude-api
   skill) and a few hundred K output tokens across ~40 files written.
-- **The demo itself:** **$0** tonight (deterministic mock). A real-API demo run is estimated
-  **~$0.50–0.80** at Opus 4.8 / Haiku 4.5 rates (1 Opus cluster call + ~9 Opus spec/train
-  calls + ~24 Haiku validation calls), less with prompt caching.
+- **The demo, measured live on Vertex Gemini:** **$0.056** for a 20-failure → 3-skill run
+  (18 calls: 1 cluster + 3 spec + 3 code-train + 2 prompt-train + 9 validation; 15.5K input +
+  4.4K output tokens; 205 s wall-clock on `gemini-2.5-pro`/`flash`). A full 50-failure run is
+  proportionally larger. Claude (Opus 4.8 / Haiku 4.5) would be ~3–5× this at list rates.
+  Mock mode is **$0**.
 
 ## Suggested first moves (from `docs/04_mvp_milestones.md`, Week 1)
 

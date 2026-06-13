@@ -3,22 +3,32 @@
 None of these stopped the build; the framework is complete and tested. These are the
 items that need *you* — a credential, a decision, or real data — before the next steps.
 
-## 1. No `ANTHROPIC_API_KEY` in the overnight environment  ⟵ highest priority
+## 1. LLM providers — Vertex works; Anthropic/OpenAI need keys (not blockers)
 
-- **What happened:** there was no `ANTHROPIC_API_KEY` (nor `ANTHROPIC_AUTH_TOKEN`) in the
-  shell env, and the `anthropic` SDK was not installed (I installed it). The parallel AORA_v1
-  run appears to have hit the same wall — its latest batch is `..._executor_only`.
-- **Impact:** the demo and tests ran against the deterministic `MockLLMClient`. The real
-  Anthropic path is fully implemented and unit-tested (`tests/test_anthropic_client.py`),
-  but no *live* call was made tonight.
-- **What I did NOT do (on purpose):** I did not repurpose the Claude Code OAuth token in
-  `~/.claude/.credentials.json` for automated API calls — it's scoped for Claude Code, using
-  it programmatically is fragile and arguably out of intent, and you said the key would be in
-  env. If you *want* me to wire OAuth-token auth as a fallback, that's a one-line change in
-  `AnthropicLLMClient.__init__` (the SDK takes `auth_token=` + the `oauth-2025-04-20` beta
-  header) — but confirm first.
-- **Action for you:** `export ANTHROPIC_API_KEY=sk-ant-...` then
-  `python scripts/demo_full_loop.py`. That produces the real-API proof and the true token cost.
+**Resolved:** the stack now runs on all three providers (Claude API, OpenAI, Gemini via
+Vertex AI) behind one interface. The **Vertex path is verified live** with your `gcp-lead`
+service account and is the default on jugg (no `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` are set,
+so auto-detect picks Vertex). The Anthropic and OpenAI paths are implemented and unit-tested
+with injected fakes; they activate the moment their keys are present:
+
+```bash
+AORA_FORGE_PROVIDER=anthropic ANTHROPIC_API_KEY=sk-ant-... python scripts/demo_full_loop.py
+AORA_FORGE_PROVIDER=openai    OPENAI_API_KEY=sk-...        python scripts/demo_full_loop.py
+```
+
+- **Credential security:** your GCP service-account JSON is stored **only** in
+  `.secrets/gcp-lead-sa.json`, which is gitignored and was **never committed** (verified). The
+  private key is not echoed anywhere in the repo. Note: the key is now also in this chat
+  transcript — consider rotating it if that's a concern, since transcripts persist.
+- **Model defaults** (override via `AORA_FORGE_<PROVIDER>_<TIER>_MODEL`): Vertex
+  `gemini-2.5-pro`/`gemini-2.5-flash`; Anthropic `claude-opus-4-8`/`claude-haiku-4-5`; OpenAI
+  `gpt-4o`/`gpt-4o-mini`. **Decision for you:** confirm the OpenAI model ids you want (I guessed
+  `gpt-4o`/`gpt-4o-mini`; pricing in `llm/base.py` is approximate).
+- **Known finding from the live run:** the code-skill trainer's execution-verifier is brittle
+  to LLM-authored function signatures (one Gemini-written code skill verified to 0 probes and
+  was correctly marked *weak* — the gate working as designed). Prompt skills (the reliable type
+  by design) validated well. Worth hardening `code_skill_trainer._verify` to be more tolerant of
+  varied signatures before relying on code skills in the paper.
 
 ## 2. No real failure corpus yet
 

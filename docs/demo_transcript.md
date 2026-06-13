@@ -1,10 +1,76 @@
 # AORA-Forge — captured demo transcripts
 
-Output of the two demos run in **mock mode** (no API key) on the synthetic
-failure set, captured during the overnight build. Reproduce with
-`make demo` and `make hook-demo` (set `ANTHROPIC_API_KEY` for the real-API run).
+Reproduce with `make demo` / `make hook-demo`. The provider is auto-selected
+(`AORA_FORGE_PROVIDER` or first reachable credential, else mock).
 
-## `python scripts/demo_full_loop.py --mock`
+## LIVE run against Vertex Gemini (`gemini-2.5-pro`/`flash`, gcp-lead SA)
+
+`AORA_FORGE_PROVIDER=vertex python scripts/demo_full_loop.py --n 20 --max-skills 3`
+— real API calls; note the LLM-authored skill names and the measured cost.
+
+```
+
+==============================================================================
+  AORA-Forge — end-to-end growth demo
+==============================================================================
+
+Generated 20 synthetic failures -> /tmp/aora_real_vertex/synthetic_failures.jsonl
+  by embodiment : {'drone_figs': 12, 'ground_habitat': 8}
+  failure modes : ['CLAIMED_NOT_REACHED', 'DONE_GATE_LOOP', 'HALLUCINATED_DONE', 'INSTANCE_CONFUSION', 'OOB', 'SCAN_LOOP', 'TARGET_NOT_VISIBLE', 'TIMEOUT_NO_PROGRESS']
+
+==============================================================================
+  Growing skills from failures
+==============================================================================
+
+==============================================================================
+  Forged skills
+==============================================================================
+3 clusters -> 3 skills (2 validated)
+
+  [weak] target_at_depth_verifier
+         type=code       score=0.0   cases=0/0 embodiments=[ground_habitat,drone_figs]
+  [PASS] stuck_motion_detector
+         type=prompt     score=0.82  cases=4/5 embodiments=[drone_figs]
+  [PASS] systematic_exploration_proposer
+         type=prompt     score=0.65  cases=3/4 embodiments=[drone_figs,ground_habitat]
+
+==============================================================================
+  Scene-conditioned retrieval (skills -> planner tools)
+==============================================================================
+
+  scene ['green clock', 'table'] on drone_figs:
+    -> systematic_exploration_proposer  [executor_prompt]
+    -> stuck_motion_detector  [executor_prompt]
+    -> target_at_depth_verifier  [direct_tool]
+
+  scene ['chair', 'sofa'] on ground_habitat:
+    -> systematic_exploration_proposer  [executor_prompt]
+    -> stuck_motion_detector  [executor_prompt]
+    -> target_at_depth_verifier  [direct_tool]
+
+  scene ['potted plant'] on ground_habitat:
+    -> target_at_depth_verifier  [direct_tool]
+
+==============================================================================
+  Run summary — what this cost
+==============================================================================
+  LLM backend          : REAL LLM API (Vertex Gemini)
+  Wall-clock           :  205.0 s
+  Total input tokens   : 15,459
+    cache read         : 0
+    cache creation     : 0
+  Total output tokens  : 4,353
+  Estimated cost (USD) : $0.0562
+  Calls by stage:
+    cluster_failures               1 call(s)  $0.0173
+    generate_spec                  3 call(s)  $0.0277
+    train_code_skill               3 call(s)  $0.0058
+    train_prompt_skill             2 call(s)  $0.0032
+    validate_prompt_skill          9 call(s)  $0.0022
+
+```
+
+## Mock run (offline, deterministic) — `python scripts/demo_full_loop.py --mock`
 
 ```
 
@@ -65,7 +131,7 @@ Generated 50 synthetic failures -> /tmp/transcript_demo/synthetic_failures.jsonl
   Run summary — what this cost
 ==============================================================================
   LLM backend          : MOCK (no API key)
-  Wall-clock           :    0.1 s
+  Wall-clock           :    0.0 s
   Total input tokens   : 0
     cache read         : 0
     cache creation     : 0
@@ -83,7 +149,7 @@ Generated 50 synthetic failures -> /tmp/transcript_demo/synthetic_failures.jsonl
 
 ```
 
-## `python scripts/orchestrator_hook_demo.py --mock`
+## Orchestrator hook — `python scripts/orchestrator_hook_demo.py --mock`
 
 ```
 ==============================================================================

@@ -66,7 +66,7 @@ class RunTelemetry:
     def summary_lines(self) -> list[str]:
         """Human-readable summary block for the run report."""
         u = self.total_usage
-        mode = "MOCK (no API key)" if self.all_mocked else "REAL Claude API"
+        mode = "MOCK (deterministic, no key)" if self.all_mocked else "REAL LLM API"
         lines = [
             f"LLM backend          : {mode}",
             f"Wall-clock           : {self.elapsed_s:6.1f} s",

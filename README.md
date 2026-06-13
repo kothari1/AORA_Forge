@@ -81,18 +81,30 @@ python scripts/grow_skill.py         # cluster → spec → trained skill in the
 python scripts/eval_skill.py         # evaluate a stored skill against a holdout
 ```
 
-## LLM backend
+## LLM backend (three providers, one interface)
 
-LLM calls go through `aora_forge/llm/client.py` (Anthropic SDK only). Planner-tier and
-spec-generation calls default to **Claude Opus 4.8** (`claude-opus-4-8`); cheap
-inner-loop calls (clustering helpers, validation judging) default to **Claude Haiku
-4.5** (`claude-haiku-4-5`). Prompt caching is applied to system prompts and large
-context; per-call token/cost telemetry is logged.
+LLM calls go through `aora_forge/llm/` — a single `LLMClient` interface with three real
+backends and a deterministic mock:
 
-If `ANTHROPIC_API_KEY` is not set, the client falls back to a **deterministic
-`MockLLMClient`** that produces structurally valid, theme-aware responses so the
-architecture is provable end-to-end without a key. The mock is loud about being a mock
-(every `LLMUsage.mocked == True`). See `STATUS.md` for tonight's run.
+| Provider | Auth | Default planner / worker models |
+|---|---|---|
+| **Anthropic** (Claude API) | `ANTHROPIC_API_KEY` | `claude-opus-4-8` / `claude-haiku-4-5` |
+| **OpenAI** | `OPENAI_API_KEY` | `gpt-4o` / `gpt-4o-mini` |
+| **Gemini via Vertex AI** | GCP service-account JSON (`.secrets/gcp-lead-sa.json`) | `gemini-2.5-pro` / `gemini-2.5-flash` |
+
+The active provider is chosen by `AORA_FORGE_PROVIDER` (`anthropic`|`openai`|`vertex`|`mock`)
+or, if unset, the **first reachable credential** (Anthropic → OpenAI → Vertex), else a
+**deterministic `MockLLMClient`** that produces theme-aware responses so the architecture
+runs end-to-end without any key. Structured output is forced-tool/function-calling
+(Anthropic/OpenAI) or native `response_schema` (Gemini); every call keeps the 3-attempt
+validate-and-retry loop and an `offline_fallback`. Per-tier model ids are overridable via
+`AORA_FORGE_<PROVIDER>_<TIER>_MODEL`. Per-call token/cost telemetry is logged. See
+`.env.example` for all variables, and `STATUS.md` for the verified live run.
+
+```bash
+pip install -e ".[providers]"            # adds openai + google-genai
+AORA_FORGE_PROVIDER=vertex python scripts/demo_full_loop.py   # real Gemini run
+```
 
 ## Status (what's real vs. stubbed)
 
