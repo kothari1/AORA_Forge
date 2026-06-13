@@ -1,0 +1,25 @@
+# Lightweight conda environment for AORA-Forge.
+#
+# This deliberately does NOT pull Habitat-Sim, NeRFStudio, gsplat, or any heavy
+# native package — those live in the AORA_v1 (consumer) repo. AORA-Forge is the
+# framework into which 3DGS reconstruction plugs later; tonight everything around
+# that interface is real and runnable on CPU.
+#
+#   conda env create -f environment.yml
+#   conda activate aora_forge
+#   pip install -e .
+#
+name: aora_forge
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy>=1.24
+  - pip:
+      - pydantic>=2.6
+      - anthropic>=0.40
+      - sentence-transformers>=2.6   # optional; retriever degrades without it
+      - pytest>=7.4
+      - ruff>=0.4
+      - mypy>=1.8

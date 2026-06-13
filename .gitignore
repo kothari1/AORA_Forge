@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+.conda/
+
+# Caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Models / weights / large binaries
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.ckpt
+
+# Run outputs
+outputs/
+runs/
+wandb/
+
+# Skill library on-disk store (regenerable; demo writes here)
+skill_store/
+demo_skill_store/
+
+# Secrets / env
+.env
+.env.*
+*.key
+.secrets/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local-only working notes (not for the public repo)
+.overnight_prompt.md

@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aora-forge"
+version = "0.1.0"
+description = "An embodiment-blind orchestrator that grows new robot skills from real deployment failures via 3DGS real-to-sim reconstruction."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Aditya Kothari", email = "kothari1@stanford.edu" }]
+keywords = ["robotics", "self-improving-agents", "skill-library", "3dgs", "cross-embodiment", "llm-agents"]
+
+dependencies = [
+    "pydantic>=2.6",
+    "anthropic>=0.40",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+# Embedding-based retrieval. The retriever degrades gracefully to a deterministic
+# hashing embedding if sentence-transformers (or its model download) is unavailable,
+# so this is optional — install it for semantically meaningful retrieval.
+embed = ["sentence-transformers>=2.6"]
+# Tier-3 stretch: a tiny CLIP-head classifier skill trained on the local GPU.
+classifier = ["torch>=2.1"]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.4",
+    "mypy>=1.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/kothari1/AORA_Forge"
+
+[tool.setuptools.packages.find]
+include = ["aora_forge*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "SIM"]
+# E501 (line length) is enforced by the formatter, not the linter, to avoid churn
+# on long docstrings and embedded prompt text.
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+no_implicit_optional = true
+check_untyped_defs = true
+# Optional third-party deps without type stubs.
+[[tool.mypy.overrides]]
+module = ["sentence_transformers.*", "torch.*", "numpy.*", "anthropic.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
