@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-type-test:
+    runs-on: ubuntu-latest
+    # No GPU and no ANTHROPIC_API_KEY in CI: the pipeline runs against the
+    # deterministic MockLLMClient, and the retriever uses the offline hashing
+    # embedder. Everything here is CPU-only and network-free.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check aora_forge scripts tests
+
+      - name: Ruff format check
+        run: ruff format --check aora_forge scripts tests
+
+      - name: Mypy
+        run: mypy aora_forge
+
+      - name: Pytest
+        run: pytest tests/ -q
+
+      - name: Demo smoke (mock backend)
+        run: python scripts/demo_full_loop.py --n 30 --mock --store /tmp/ci_store
