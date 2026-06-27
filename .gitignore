@@ -33,9 +33,12 @@ outputs/
 runs/
 wandb/
 
-# Skill library on-disk store (regenerable; demo writes here)
+# Skill library on-disk store (regenerable; demos/dashboard write here)
 skill_store/
 demo_skill_store/
+dashboard_store/
+real_skill_store/
+hook_demo_store/
 
 # Secrets / env
 .env

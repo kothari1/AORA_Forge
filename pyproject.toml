@@ -27,6 +27,8 @@ providers = ["openai>=1.40", "google-genai>=1.0"]
 # hashing embedding if sentence-transformers (or its model download) is unavailable,
 # so this is optional — install it for semantically meaningful retrieval.
 embed = ["sentence-transformers>=2.6"]
+# Visual dashboard (Gradio).  python scripts/dashboard.py
+viz = ["gradio>=4.0", "matplotlib>=3.6"]
 # Tier-3 stretch: a tiny CLIP-head classifier skill trained on the local GPU.
 classifier = ["torch>=2.1"]
 dev = [

@@ -2,7 +2,7 @@
 # LLM, hashing embedder) unless ANTHROPIC_API_KEY is set, in which case `demo`
 # hits the real Claude API.
 
-.PHONY: help install dev test lint format typecheck check demo hook-demo clean
+.PHONY: help install dev test lint format typecheck check demo hook-demo dashboard clean
 
 help:
 	@echo "make install     - pip install the package"
@@ -14,6 +14,7 @@ help:
 	@echo "make check       - lint + typecheck + test (what CI runs)"
 	@echo "make demo        - end-to-end growth demo (real API if ANTHROPIC_API_KEY set, else mock)"
 	@echo "make hook-demo   - prove the planner gains tools after growth"
+	@echo "make dashboard   - launch the visual dashboard (needs: pip install -e .[viz])"
 	@echo "make clean       - remove caches and demo stores"
 
 install:
@@ -42,6 +43,9 @@ demo:
 
 hook-demo:
 	python scripts/orchestrator_hook_demo.py --mock
+
+dashboard:
+	python scripts/dashboard.py
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache **/__pycache__ \
