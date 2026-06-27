@@ -31,7 +31,7 @@ log = get_logger("failures.collector")
 
 # Field-name aliases accepted from heterogeneous log formats.
 _INSTRUCTION_KEYS = ("task_instruction", "instruction", "task", "nl_instruction")
-_QUERY_KEYS = ("target_query", "query", "goal", "object_category", "goal_object")
+_QUERY_KEYS = ("target_query", "query", "goal", "object_category", "goal_object", "category")
 _ENV_KEYS = ("environment", "scene_id", "scene", "env_id")
 _MODE_KEYS = ("failure_mode", "failure", "mode")
 _NARRATIVE_KEYS = ("narrative", "reason", "summary", "explanation")
@@ -104,8 +104,28 @@ def record_from_dict(
         ),
         observations=_obs_from_dict(d),
         episode_id=d.get("episode_id"),
-        provenance=dict(d["provenance"]) if isinstance(d.get("provenance"), dict) else {},
+        representative_frame_ref=_find_capture(d.get("run_dir")),
+        provenance=_provenance(d),
     )
+
+
+def _provenance(d: dict[str, Any]) -> dict[str, Any]:
+    """Carry through structured provenance, plus run_dir / success / spl so the
+    dashboard can link a failure record back to its on-disk robot artifacts
+    (path.png trajectory, captured frames)."""
+    prov: dict[str, Any] = dict(d["provenance"]) if isinstance(d.get("provenance"), dict) else {}
+    for k in ("run_dir", "success", "spl", "scene_id", "final_dist_to_goal_geodesic"):
+        if k in d and k not in prov:
+            prov[k] = d[k]
+    return prov
+
+
+def _find_capture(run_dir: Any) -> str | None:
+    """First captured frame in an episode's run dir, if any (for visual context)."""
+    if not run_dir:
+        return None
+    caps = sorted(Path(str(run_dir)).glob("captures/*.jpg"))
+    return str(caps[0]) if caps else None
 
 
 def collect_from_jsonl(
@@ -132,6 +152,27 @@ def collect_from_jsonl(
             if rec.failure_mode is not FailureMode.NONE:
                 records.append(rec)
     log.info("collected %d failure record(s) from %s", len(records), p)
+    return records
+
+
+def collect_from_aora_outputs(
+    root: str | Path, *, default_embodiment: Embodiment = Embodiment.GROUND_HABITAT
+) -> list[FailureRecord]:
+    """Load all real failures from an AORA_v1 ``outputs/`` tree.
+
+    Globs every ``episodes.jsonl``, ingests the failures (successes dropped), and
+    namespaces each record id by its batch dir so the same episode run in different
+    batches stays distinct. This is the bridge from real deployment runs (C2) to
+    the growth pipeline.
+    """
+    root = Path(root)
+    records: list[FailureRecord] = []
+    for f in sorted(root.glob("**/episodes.jsonl")):
+        batch = f.parent.name
+        for rec in collect_from_jsonl(f, default_embodiment=default_embodiment):
+            rec.record_id = f"{batch}::{rec.record_id}"
+            records.append(rec)
+    log.info("collected %d real failure(s) from %s", len(records), root)
     return records
 
 
