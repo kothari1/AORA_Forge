@@ -53,3 +53,6 @@ Thumbs.db
 
 # Local-only working notes (not for the public repo)
 .overnight_prompt.md
+
+# A/B eval run artifact (regenerable)
+ab_result.json

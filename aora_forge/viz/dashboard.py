@@ -202,6 +202,59 @@ def scan_robot_artifacts(aora_path: str) -> list[tuple[str, str]]:
     return items
 
 
+_LIVE_DIR = "/tmp/aora_live"
+
+
+def load_live_frame(live_dir: str) -> tuple[str | None, str]:
+    """Latest RGB frame written by a running AORA_v1 episode (our executor hook)."""
+    d = Path(live_dir or _LIVE_DIR)
+    img = d / "latest.jpg"
+    if not img.exists():
+        return (
+            None,
+            f"No live frame yet — start a run with --live-dir {d} (e.g. scripts/run_ab.py).",
+        )
+    meta: dict = {}
+    mp = d / "meta.json"
+    if mp.exists():
+        try:
+            meta = json.loads(mp.read_text())
+        except Exception:  # noqa: BLE001
+            meta = {}
+    pos = [round(x, 1) for x in meta.get("position", [])]
+    return str(img), (
+        f"step {meta.get('step', '?')} · pos {pos} · yaw {meta.get('yaw_deg', '?')}° "
+        f"· {meta.get('status', '')}"
+    )
+
+
+def load_ab_result(path: str) -> tuple[list[list[str]], str]:
+    """Load a saved A/B result (scripts/run_ab.py output) into a comparison table."""
+    p = Path(path or "ab_result.json")
+    if not p.exists():
+        return [], f"No A/B result at `{p}`. Run `python scripts/run_ab.py` first."
+    r = json.loads(p.read_text())
+    b, s, d = r["baseline"], r["with_skill"], r["deltas"]
+    rows = [
+        ["episodes", str(b["n"]), str(s["n"]), ""],
+        ["success rate (SSR)", f"{b['ssr']:.3f}", f"{s['ssr']:.3f}", f"{d['ssr']:+.3f}"],
+        ["SPL", f"{b['spl']:.3f}", f"{s['spl']:.3f}", f"{d['spl']:+.3f}"],
+        ["false-positive done (FPR)", f"{b['fpr']:.3f}", f"{s['fpr']:.3f}", f"{d['fpr']:+.3f}"],
+        [
+            "mean steps",
+            f"{b['mean_steps']:.1f}",
+            f"{s['mean_steps']:.1f}",
+            f"{d['mean_steps']:+.1f}",
+        ],
+    ]
+    md = (
+        f"### `{r['skill_name']}` injected into AORA_v1 (real Habitat ObjectNav)\n"
+        f"- baseline failure modes: `{b['failure_modes']}`\n"
+        f"- +skill failure modes: `{s['failure_modes']}`\n\n_{r.get('note', '')}_"
+    )
+    return rows, md
+
+
 # --------------------------------------------------------------------------- #
 # Gradio UI
 # --------------------------------------------------------------------------- #
@@ -313,5 +366,34 @@ def build_dashboard() -> Any:
                 label="trajectories & captured failure frames", columns=4, height=560
             )
             scan_btn.click(scan_robot_artifacts, [scan_path], gallery)
+
+        with gr.Tab("5 · Live robot view"):
+            gr.Markdown(
+                "**Live** RGB from a running AORA_v1 Habitat episode — the agent's camera as it "
+                "navigates. Start a run with `--live-dir /tmp/aora_live` (e.g. `scripts/run_ab.py`). "
+                "Auto-refreshes ~every 1.5 s."
+            )
+            live_path = gr.Textbox(_LIVE_DIR, label="live frame dir")
+            live_img = gr.Image(label="agent camera (RGB)", height=400)
+            live_cap = gr.Textbox(label="pose · step · status", interactive=False)
+            gr.Button("Refresh now").click(load_live_frame, [live_path], [live_img, live_cap])
+            gr.Timer(1.5).tick(load_live_frame, [live_path], [live_img, live_cap])
+
+        with gr.Tab("6 · Evaluation (A/B): does the skill help?"):
+            gr.Markdown(
+                "The real test of C2: inject a grown skill into AORA_v1's executor and compare "
+                "**baseline vs. +skill** on the same Habitat ObjectNav episodes. Run it from the "
+                "CLI (`python scripts/run_ab.py --skill <id> --limit 6`), then load the result.\n\n"
+                "FPR = the executor declared *done* but wasn't actually at the goal — the exact "
+                "failure `visual_target_arrival_verifier` was grown to fix."
+            )
+            ab_path = gr.Textbox("ab_result.json", label="A/B result JSON")
+            ab_table = gr.Dataframe(
+                headers=["metric", "baseline", "+skill", "Δ"], label="comparison"
+            )
+            ab_md = gr.Markdown()
+            gr.Button("Load latest A/B result", variant="primary").click(
+                load_ab_result, [ab_path], [ab_table, ab_md]
+            )
 
     return demo
