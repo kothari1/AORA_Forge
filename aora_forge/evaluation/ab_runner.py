@@ -176,23 +176,30 @@ def _run_batch(
         category,
         bool(skill_prompt_file),
     )
-    proc = subprocess.run(
-        cmd, cwd=str(AORA_V1_ROOT), capture_output=True, text=True, timeout=timeout_s
-    )
-    out = proc.stdout + "\n" + proc.stderr
+    # Stream the subprocess to a log file (not an in-memory pipe) so the run is
+    # diagnosable even if the child is killed, and "Batch output:" survives.
+    log_path = Path(tempfile.gettempdir()) / f"aora_ab_{label}.log"
+    with open(log_path, "w") as lf:
+        proc = subprocess.run(
+            cmd, cwd=str(AORA_V1_ROOT), stdout=lf, stderr=subprocess.STDOUT,
+            text=True, timeout=timeout_s,
+        )
+    out = log_path.read_text()
     if proc.returncode != 0:
-        log.warning("[%s] AORA_v1 returned %d", label, proc.returncode)
-    # parse "Batch output: <dir>" from stdout
+        tail = "\n".join(out.splitlines()[-8:])
+        log.warning("[%s] AORA_v1 returned %d. log tail:\n%s", label, proc.returncode, tail)
+    # "Batch output: <dir>" is printed at the start, so it survives even a mid-run kill.
     m = re.search(r"Batch output:\s*(\S+)", out)
     if m:
         batch_dir = Path(m.group(1))
     else:
-        # fallback: newest batch dir under the minival output root
-        root = AORA_V1_ROOT / "outputs" / "objectnav_minival"
+        root = AORA_V1_ROOT / "outputs" / "objectnav_minival_ab"
         batches = sorted(root.glob("batch_*"), key=lambda p: p.stat().st_mtime)
         batch_dir = batches[-1] if batches else root
-    log.info("[%s] batch dir: %s", label, batch_dir)
-    return batch_dir / "episodes.jsonl"
+    jsonl = batch_dir / "episodes.jsonl"
+    nep = sum(1 for _ in jsonl.open()) if jsonl.exists() else 0
+    log.info("[%s] batch dir: %s (%d episodes)", label, batch_dir, nep)
+    return jsonl
 
 
 def run_ab(
